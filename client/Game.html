@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>GameTime</title>
+</head>
+<body onresize="resizeCanvas()">
+    <button id="btnDeal" onclick="dealCards()" disabled>Deal Cards</button> Press: 1-9 to Preview | Press Shift+1-9 to play card | Press Spacebar to Preview Desk
+    <canvas onresize="resizeCanvas()" id="ctx" height="1000" width="1900" style="border:1px solid #000000;"></canvas>
+
+</body>
+</html>
+
+<script src = "/socket.io/socket.io.js"></script>
+<script>
+
+    var playerCount = 0;
+    var ownPos;
+    var canvas = document.getElementById("ctx");
+    var ctx = canvas.getContext("2d");
+    var ownedCards = {};
+    var cardsOnDesk = {};
+    var cardsOf1 = 0;
+    var cardsOf2 = 0;
+    var cardsOf3 = 0;
+    var cardsOf4 = 0;
+    var cardsOf5 = 0;
+    var socket = io();
+    var btnDealCards = document.getElementById("btnDeal");
+    var startOwnHeight = 738;
+    var startOwnWidth = 100;
+    var startMidHeight = 306;
+    var startMidWidth = 200;
+    var deskOpen = false;
+    var myTurn = false;
+
+    //Images setup
+    {
+        var Img = {};
+        var ImgJoker = {};
+        var ImgCard = {};
+
+        for(var i = 0;i<6;i++) {
+            ImgJoker[i] = new Image();
+        }
+        for(var i = 0;i<60;i++) {
+            ImgCard[i] = new Image();
+        }
+
+        //back
+        cardBack = new Image();
+        cardBack.src = "/client/Resources/Card_Background.png";
+        jokerBack = new Image();
+        jokerBack.src = "/client/Resources/Jocker_Background.png";
+
+        //joker
+        ImgJoker[0].src = "/client/Resources/JokerFronts/Joker_HaltStopIchFuehleMichGemobbt.png";
+        ImgJoker[1].src = "/client/Resources/JokerFronts/Joker_ParallelGesellschaft.png";
+        ImgJoker[2].src = "/client/Resources/JokerFronts/Joker_Schnauze.png";
+        ImgJoker[3].src = "/client/Resources/JokerFronts/Joker_Shitstorm.png";
+        ImgJoker[4].src = "/client/Resources/JokerFronts/Joker_Stammtisch.png";
+        ImgJoker[5].src = "/client/Resources/JokerFronts/Joker_VoelligAustauschbar.png";
+
+        //Besorge Bürger
+        ImgCard[0].src = "/client/Resources/CardFronts/BesorgteBuerger_Chemtrailer.png";
+        ImgCard[1].src = "/client/Resources/CardFronts/BesorgteBuerger_Impfgegner.png";
+        ImgCard[2].src = "/client/Resources/CardFronts/BesorgteBuerger_Klimaskeptiker.png";
+        ImgCard[3].src = "/client/Resources/CardFronts/BesorgteBuerger_Maennerrechtler.png";
+        ImgCard[4].src = "/client/Resources/CardFronts/BesorgteBuerger_Prepper.png";
+        ImgCard[5].src = "/client/Resources/CardFronts/BesorgteBuerger_reichsbuerger.png";
+
+        //Fanatiker
+        ImgCard[6].src = "/client/Resources/CardFronts/Fanatiker_Autonome.png";
+        ImgCard[7].src = "/client/Resources/CardFronts/Fanatiker_Datenschuetzer.png";
+        ImgCard[8].src = "/client/Resources/CardFronts/Fanatiker_Feministen.png";
+        ImgCard[9].src = "/client/Resources/CardFronts/Fanatiker_Grosstadteltern.png";
+        ImgCard[10].src = "/client/Resources/CardFronts/Fanatiker_Trolle.png";
+        ImgCard[11].src = "/client/Resources/CardFronts/Fanatiker_Wutbuerger.png";
+
+
+        //Gutmenschen
+        ImgCard[12].src = "/client/Resources/CardFronts/Gutmenschen_Inklusionsbefürworter.png";
+        ImgCard[13].src = "/client/Resources/CardFronts/Gutmenschen_Klimaaktivisten.png";
+        ImgCard[14].src = "/client/Resources/CardFronts/Gutmenschen_NoBorderAktivisten.png";
+        ImgCard[15].src = "/client/Resources/CardFronts/Gutmenschen_SocialJusticeWarriors.png";
+        ImgCard[16].src = "/client/Resources/CardFronts/Gutmenschen_Tierschuetzer.png";
+        ImgCard[17].src = "/client/Resources/CardFronts/Gutmenschen_Veganer.png";
+
+        //Influencer
+        ImgCard[18].src = "/client/Resources/CardFronts/Influenzer_Journalisten.png";
+        ImgCard[19].src = "/client/Resources/CardFronts/Influenzer_Lobbyisten.png";
+        ImgCard[20].src = "/client/Resources/CardFronts/Influenzer_Populisten.png";
+        ImgCard[21].src = "/client/Resources/CardFronts/Influenzer_Truther.png";
+        ImgCard[22].src = "/client/Resources/CardFronts/Influenzer_Wissenschaftler.png";
+        ImgCard[23].src = "/client/Resources/CardFronts/Influenzer_Youtuber.png";
+
+        //Leistungsträger
+        ImgCard[24].src = "/client/Resources/CardFronts/Leistungstraeger_Erben.png";
+        ImgCard[25].src = "/client/Resources/CardFronts/Leistungstraeger_Investoren.png";
+        ImgCard[26].src = "/client/Resources/CardFronts/Leistungstraeger_Manager.png";
+        ImgCard[27].src = "/client/Resources/CardFronts/Leistungstraeger_Profifusballer.png";
+        ImgCard[28].src = "/client/Resources/CardFronts/Leistungstraeger_Spekulanten.png";
+        ImgCard[29].src = "/client/Resources/CardFronts/Leistungstraeger_Unternehmensberater.png";
+
+        //LGBTQ
+        ImgCard[30].src = "/client/Resources/CardFronts/LGBTQ_Asexuelle.png";
+        ImgCard[31].src = "/client/Resources/CardFronts/LGBTQ_Bisexuelle.png";
+        ImgCard[32].src = "/client/Resources/CardFronts/LGBTQ_Lesben.png";
+        ImgCard[33].src = "/client/Resources/CardFronts/LGBTQ_NichtBinaere.png";
+        ImgCard[34].src = "/client/Resources/CardFronts/LGBTQ_Schwule.png";
+        ImgCard[35].src = "/client/Resources/CardFronts/LGBTQ_Transsexuelle.png";
+
+        //Lifestyle
+        ImgCard[36].src = "/client/Resources/CardFronts/Lifestyle_Fettleibige.png";
+        ImgCard[37].src = "/client/Resources/CardFronts/Lifestyle_Fluechtlinge.png";
+        ImgCard[38].src = "/client/Resources/CardFronts/Lifestyle_HarzIVEmpfänger.png";
+        ImgCard[39].src = "/client/Resources/CardFronts/Lifestyle_Magersüchtige.png";
+        ImgCard[40].src = "/client/Resources/CardFronts/Lifestyle_Snowflakes.png";
+        ImgCard[41].src = "/client/Resources/CardFronts/Lifestyle_Verfassungsschützer.png";
+
+        //Perverse
+        ImgCard[42].src = "/client/Resources/CardFronts/Perverse_Burschenschaftler.png";
+        ImgCard[43].src = "/client/Resources/CardFronts/Perverse_Cosplayer.png";
+        ImgCard[44].src = "/client/Resources/CardFronts/Perverse_Exhibitionisten.png";
+        ImgCard[45].src = "/client/Resources/CardFronts/Perverse_Genderforscher.png";
+        ImgCard[46].src = "/client/Resources/CardFronts/Perverse_Lebendmoebel.png";
+        ImgCard[47].src = "/client/Resources/CardFronts/Perverse_Ornitologen.png";
+
+        //Trottel
+        ImgCard[48].src = "/client/Resources/CardFronts/Trottel_Aufstocker.png";
+        ImgCard[49].src = "/client/Resources/CardFronts/Trottel_BildLeser.png";
+        ImgCard[50].src = "/client/Resources/CardFronts/Trottel_Esoteriker.png";
+        ImgCard[51].src = "/client/Resources/CardFronts/Trottel_FlatEarther.png";
+        ImgCard[52].src = "/client/Resources/CardFronts/Trottel_Mansplainer.png";
+        ImgCard[53].src = "/client/Resources/CardFronts/Trottel_Praktikanten.png";
+        ImgCard[54].src = "/client/Resources/CardFronts/Trottel_Rentner.png";
+        ImgCard[55].src = "/client/Resources/CardFronts/Trottel_Sinnfluencer.png";
+
+        //Unterschicht
+        ImgCard[56].src = "/client/Resources/CardFronts/Unterschicht_Altenpfleger.png";
+        ImgCard[57].src = "/client/Resources/CardFronts/Unterschicht_Pfandsammler.png";
+        ImgCard[58].src = "/client/Resources/CardFronts/Unterschicht_RealityTvDarsteller.png";
+        ImgCard[59].src = "/client/Resources/CardFronts/Unterschicht_RTLZuschauer.png";
+
+    }
+
+
+    document.onload = document.onresize = function () {
+
+        resizeCanvas();
+
+    }
+
+    function resizeCanvas() {
+        //canvas.height = document.body.clientHeight;
+        //canvas.width = document.body.clientWidth;
+        //canvas.style.height = document.body.clientHeight + "px";
+        //canvas.style.width = document.body.clientWidth + "px";
+        console.log("Resize");
+    }
+
+    socket.on("setup", function () {
+        resizeCanvas();
+    });
+
+    socket.on("setPlayers", function () {
+        reDrawAll();
+    });
+
+    function drawPlayers() {
+        ctx.font = "50px Arial";
+        switch (playerCount) {
+            case 1: {
+
+                break;
+            }
+            case 2: {
+                ctx.fillStyle = "#000000";
+                ctx.fillRect(900, 0, 100, 50);
+                ctx.fillStyle = "#ffffff";
+                ctx.fillText(cardsOf1.toString(),940,50);
+                break;
+            }
+            case 3: {
+                ctx.fillStyle = "#000000";
+                ctx.fillRect(600, 0, 100, 50);
+                ctx.fillRect(1200, 0, 100, 50);
+                ctx.fillStyle = "#ffffff";
+                ctx.fillText(cardsOf1.toString(),640,50);
+                ctx.fillText(cardsOf2.toString(),1240,50);
+                break;
+            }
+            case 4: {
+                ctx.fillStyle = "#000000";
+                ctx.fillRect(0, 450, 50, 100);
+                ctx.fillRect(900, 0, 100, 50);
+                ctx.fillRect(1850, 450, 50, 100);
+                ctx.fillStyle = "#ffffff";
+                ctx.fillText(cardsOf1.toString(),0,530);
+                ctx.fillText(cardsOf2.toString(),940,50);
+                ctx.fillText(cardsOf3.toString(),1850,530);
+                break;
+            }
+            case 5: {
+                ctx.fillStyle = "#000000";
+                ctx.fillRect(0,450, 50, 100);
+                ctx.fillRect(600, 0, 100, 50);
+                ctx.fillRect(1200, 0, 100, 50);
+                ctx.fillRect(1850, 450, 50, 100);
+                ctx.fillStyle = "#ffffff";
+                ctx.fillText(cardsOf1.toString(),0,530);
+                ctx.fillText(cardsOf2.toString(),640,50);
+                ctx.fillText(cardsOf3.toString(),1240,50);
+                ctx.fillText(cardsOf4.toString(),1850,530);
+                break;
+            }
+            case 6: {
+                ctx.fillStyle = "#000000";
+                ctx.fillRect(0, 450, 50, 100);
+                ctx.fillRect(600, 0, 100, 50);
+                ctx.fillRect(900, 0, 100, 50);
+                ctx.fillRect(1200, 0, 100, 50);
+                ctx.fillRect(1850, 450, 50, 100);
+                ctx.fillStyle = "#ffffff";
+                ctx.fillText(cardsOf1.toString(),0,530);
+                ctx.fillText(cardsOf2.toString(),640,50);
+                ctx.fillText(cardsOf3.toString(),940,50);
+                ctx.fillText(cardsOf4.toString(),1240,50);
+                ctx.fillText(cardsOf5.toString(),1850,530);
+                break;
+            }
+        }
+    }
+
+    socket.on("ownPosition", function (data) {
+        ownPos = data;
+        if(data === 0) {
+            btnDealCards.disabled = false;
+        }
+        console.log("Pos: " + data);
+    });
+
+    socket.on("setPlayerCount", function (data) {
+        playerCount = data;
+    });
+
+    socket.on("newCard", function (data) {
+        ownedCards[findNextFree()] = data;
+        console.log("New Card: " + data);
+        reDrawAll();
+    });
+
+    socket.on("openDesk", function () {
+        deskOpen = true;
+        reDrawAll();
+    });
+
+    socket.on("myTurn", function (data) {
+        myTurn = data;
+        reDrawAll();
+    });
+
+    function drawMyTurn() {
+        if(myTurn) {
+            ctx.fillStyle = "#ff0000";
+            ctx.fillRect(0,800,100,200);
+            ctx.fillStyle = "#000000";
+            ctx.fillText("Dumm",0,900);
+        } else {
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0,800,100,200);
+        }
+    }
+
+    function findNextFree() {
+        for(var i = 0;i<10;i++) {
+            console.log(ownedCards[i]);
+            if(ownedCards[i] == null || ownedCards[i] === undefined) {
+                console.log("Returned: " + i);
+                return i;
+            }
+        }
+    }
+
+    function findNextFreeDesk() {
+        for(var i = 0;i<6;i++) {
+            console.log(cardsOnDesk[i]);
+            if(cardsOnDesk[i] == null || cardsOnDesk[i] === undefined) {
+                console.log("Returned: " + i);
+                return i;
+            }
+        }
+    }
+
+    socket.on("cardOnDesk", function (data) {
+        cardsOnDesk[findNextFreeDesk()] = data;
+        console.log("New Card for Desk: " + data);
+        reDrawAll();
+    });
+
+    function drawDeskCards() {
+        var i = 0;
+        for(var v in cardsOnDesk) {
+            if(cardsOnDesk[v] != null) {
+                if(deskOpen) {
+                    drawCard(cardsOnDesk[v], startMidWidth + i*250, startMidHeight, 250, 388);
+                } else {
+                    drawBack(cardBack, startMidWidth + i*250, startMidHeight, 250, 388);
+                }
+            }
+            i++;
+        }
+    }
+
+    function drawOwnCards() {
+        var i = 0;
+        for(var v in ownedCards) {
+            if(ownedCards[v] != null) {
+                drawCard(ownedCards[v], startOwnWidth + i*170, startOwnHeight, 170, 262);
+                i++;
+            }
+        }
+    }
+
+    window.onkeydown = handleKeyDown;
+    window.onkeyup = handleKeyUp;
+    window.onkeypress = handleKeyPress;
+
+    function handleKeyDown(event) {
+        switch (event.code) {
+            case"Digit1": {
+                if(ownedCards[0] != null) drawCard(ownedCards[0],800,250,340,525);
+                break;
+            }
+            case"Digit2": {
+                if(ownedCards[1] != null) drawCard(ownedCards[1],800,250,340,525);
+                break;
+            }
+            case"Digit3": {
+                if(ownedCards[2] != null) drawCard(ownedCards[2],800,250,340,525);
+                break;
+            }
+            case"Digit4": {
+                if(ownedCards[3] != null) drawCard(ownedCards[3],800,250,340,525);
+                break;
+            }
+            case"Digit5": {
+                if(ownedCards[4] != null) drawCard(ownedCards[4],800,250,340,525);
+                break;
+            }
+            case"Digit6": {
+                if(ownedCards[5] != null) drawCard(ownedCards[5],800,250,340,525);
+                break;
+            }
+            case"Digit7": {
+                if(ownedCards[6] != null) drawCard(ownedCards[6],800,250,340,525);
+                break;
+            }
+            case"Digit8": {
+                if(ownedCards[7] != null) drawCard(ownedCards[7],800,250,340,525);
+                break;
+            }
+            case"Digit9": {
+                if(ownedCards[8] != null) drawCard(ownedCards[8],800,250,340,525);
+                break;
+            }
+            case"Digit0": {
+                if(ownedCards[9] != null) drawCard(ownedCards[9],800,250,340,525);
+                break;
+            }
+            case"ShiftLeft": {
+                shiftPressed = true;
+                break;
+            }
+            case"ShiftRight": {
+                shiftPressed = true;
+                break;
+            }
+            default: {
+                break;
+            }
+        }
+    }
+
+    function handleKeyUp(event) {
+        switch (event.code) {
+            case"Digit1": {
+                break;
+            }
+            case"Digit2": {
+                break;
+            }
+            case"Digit3": {
+                break;
+            }
+            case"Digit4": {
+                break;
+            }
+            case"Digit5": {
+                break;
+            }
+            case"Digit6": {
+                break;
+            }
+            case"Digit7": {
+                break;
+            }
+            case"Digit8": {
+                break;
+            }
+            case"Digit9": {
+                break;
+            }
+            case"Digit0": {
+                break;
+            }
+            case"ShiftLeft": {
+                shiftPressed = false;
+                return;
+            }
+            case"ShiftRight": {
+                shiftPressed = false;
+                return;
+            }
+            default: {
+                return;
+            }
+        }
+        console.log("KeyUp: Number");
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0,0,1900,1000);
+        reDrawAll();
+    }
+
+    var shiftPressed = false;
+
+    function handleKeyPress(event) {
+        switch (event.code) {
+            case"Digit1": {
+                if(shiftPressed) playCard(0);
+                break;
+            }
+            case"Digit2": {
+                if(shiftPressed) playCard(1);
+                break;
+            }
+            case"Digit3": {
+                if(shiftPressed) playCard(2);
+                break;
+            }
+            case"Digit4": {
+                if(shiftPressed) playCard(3);
+                break;
+            }
+            case"Digit5": {
+                if(shiftPressed) playCard(4);
+                break;
+            }
+            case"Digit6": {
+                if(shiftPressed) playCard(5);
+                break;
+            }
+            case"Digit7": {
+                if(shiftPressed) playCard(6);
+                break;
+            }
+            case"Digit8": {
+                if(shiftPressed) playCard(7);
+                break;
+            }
+            case"Digit9": {
+                if(shiftPressed) playCard(8);
+                break;
+            }
+            case"Digit0": {
+                if(shiftPressed) playCard(9);
+                break;
+            }
+            default: {
+                break;
+            }
+        }
+    }
+
+    function playCard(index) {
+        console.log("playCard: " + ownedCards[index] + " at " + index);
+        console.log(ownedCards[index]);
+        socket.emit("playCard", ownedCards[index], ownPos);
+        ownedCards[index] = null;
+        reCalcOwnCards();
+        reDrawAll();
+    }
+
+    function reCalcOwnCards() {
+        var i = 0;
+        var j = {};
+        for(var v in ownedCards) {
+            if(ownedCards[v] != null) {
+                j[i] = ownedCards[v];
+                i++;
+            }
+        }
+        ownedCards = j;
+    }
+
+    socket.on("cardBack", function (data) {
+        cardToPos(playerCount, ownPos, data);
+        reDrawAll();
+    });
+
+    socket.on("cardBackRemove", function (data) {
+        removeCardOfPos(playerCount, ownPos, data);
+        reDrawAll();
+    });
+
+    function cardToPos(playerCount, myPos, owner) {
+        var pos = 0;
+        var index = myPos;
+        for(var i = 0;i<playerCount; i++) {
+            if(index === owner) {
+                switch (i) {
+                    case 0: {
+                        console.log("Card for me");
+                        break;
+                    }
+                    case 1: {
+                        console.log("Card for 1");
+                        pos = 1;
+                        cardsOf1++;
+                        break;
+                    }
+                    case 2: {
+                        console.log("Card for 2");
+                        pos = 2;
+                        cardsOf2++;
+                        break;
+                    }
+                    case 3: {
+                        console.log("Card for 3");
+                        pos = 3;
+                        cardsOf3++;
+                        break;
+                    }
+                    case 4: {
+                        console.log("Card for 4");
+                        pos = 4;
+                        cardsOf4++;
+                        break;
+                    }
+                    case 5: {
+                        console.log("Card for 5");
+                        pos = 5;
+                        cardsOf5++;
+                        break;
+                    }
+                    default: {
+                        console.log("Default");
+                        break;
+                    }
+                }
+                break;
+            } else {
+                if(index + 1 > playerCount - 1) {
+                    index = 0;
+                } else {
+                    index++;
+                }
+            }
+        }
+        return pos;
+    }
+
+    function removeCardOfPos(playerCount, myPos, owner) {
+        var pos = 0;
+        var index = myPos;
+        for(var i = 0;i<playerCount; i++) {
+            if(index === owner) {
+                switch (i) {
+                    case 0: {
+                        console.log("Card remove of me");
+                        break;
+                    }
+                    case 1: {
+                        console.log("Card remove of 1");
+                        pos = 1;
+                        cardsOf1--;
+                        break;
+                    }
+                    case 2: {
+                        console.log("Card remove of 2");
+                        pos = 2;
+                        cardsOf2--;
+                        break;
+                    }
+                    case 3: {
+                        console.log("Card remove of 3");
+                        pos = 3;
+                        cardsOf3--;
+                        break;
+                    }
+                    case 4: {
+                        console.log("Card remove of 4");
+                        pos = 4;
+                        cardsOf4--;
+                        break;
+                    }
+                    case 5: {
+                        console.log("Card remove of 5");
+                        pos = 5;
+                        cardsOf5--;
+                        break;
+                    }
+                    default: {
+                        console.log("Default");
+                        break;
+                    }
+                }
+                break;
+            } else {
+                if(index + 1 > playerCount - 1) {
+                    index = 0;
+                } else {
+                    index++;
+                }
+            }
+        }
+        return pos;
+    }
+
+    function dealCards() {
+        socket.emit("dealCards");
+    }
+
+    function drawCard(index, x, y, width, height) {
+
+        var card = ImgCard[index];
+
+        ctx.drawImage(card,x,y,width, height);
+    }
+
+    function drawBack(card, x, y, width, height) {
+        ctx.drawImage(card, x, y, width, height);
+    }
+
+    function reDrawAll() {
+        drawPlayers();
+        drawMyTurn();
+        drawOwnCards();
+        drawDeskCards();
+    }
+
+
+
+</script>

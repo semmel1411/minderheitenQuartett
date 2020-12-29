@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title id="title">Lobby</title>
+</head>
+<body>
+
+<h1 style="text-align: center;">Minderheiten Quartett Lobby</h1>
+<p id="playerCount" style="text-align: center;">(0/6 Players)</p>
+<table id="table" style="height: 20px; width: 35%; border-collapse: collapse; margin-left: auto; margin-right: auto;" border="1">
+    <tbody>
+    </tbody>
+</table>
+
+    <p style="text-align: center;"><button id="btnStart" onclick="playGame()" disabled> PLAY </button></p>
+
+
+
+</body>
+</html>
+
+<script src = "/socket.io/socket.io.js"></script>
+<script>
+    var table = document.getElementById("table");
+    var socket = io();
+    var playerCount = 0;
+    var playerCountLabel = document.getElementById("playerCount");
+    var title = document.getElementById("title");
+    var btnStart = document.getElementById("btnStart");
+
+    function setPlayerCount() {
+        playerCountLabel.innerHTML = "(" + playerCount + "/6 Players)";
+    }
+
+    socket.on("ownPosition", function (data) {
+        title.innerHTML = "Lobby " + data;
+        if(data === 0) {
+            btnStart.disabled = false;
+            console.log("Btn Enabled");
+        }
+    });
+
+    socket.on("clearTable", function () {
+        console.log("Number of Rows: " + table.rows.length);
+        var c = table.rows.length;
+        for(var i = 0;i<c;i++) {
+            table.deleteRow(0);
+            /*if(table.rows[i].cells.length !== 0) {
+                table.rows[i].deleteCell(0);
+            }*/
+            playerCount--;
+            console.log("Deleted: " + i);
+        }
+    });
+
+    socket.on("playerCon",function (data) {
+       table.insertRow(-1).insertCell(0).innerHTML = "Player: " + data;
+       //table.rows[data].insertCell(0).innerHTML = "Player: " + data;
+       playerCount++;
+       setPlayerCount();
+       console.log("Got new Player: " + data);
+    });
+
+    socket.on("playerDis", function (data) {
+        table.deleteRow(data);
+        //table.rows[data].deleteCell(0);
+        playerCount--;
+        setPlayerCount();
+        console.log("Deleting: " + data);
+    });
+
+    var playGame = function () {
+        console.log("Play Game!");
+        socket.emit("startGame");
+    }
+
+    socket.on("redirectGame", function () {
+        location.href = "/game";
+    });
+
+</script>
