@@ -5,7 +5,8 @@
     <title>GameTime</title>
 </head>
 <body onresize="resizeCanvas()">
-    <button id="btnDeal" onclick="dealCards()" disabled>Deal Cards</button> Press: 1-9 to Preview | Press Shift+1-9 to play card | Press Spacebar to Preview Desk
+    <button id="btnDeal" onclick="dealCards()" disabled>Deal Cards</button> Press: 1-9 to Preview | Press Shift+1-9 to play card | Press Spacebar to Preview Desk |
+    <button id="btnCollect" disabled onclick="onClickBtnCollect()">SAMMELN</button>  <button id="btnDumm" disabled onclick="onClickBtnDumm()">Ich bin Dumm!</button>
     <canvas onresize="resizeCanvas()" id="ctx" height="1000" width="1900" style="border:1px solid #000000;"></canvas>
 
 </body>
@@ -27,12 +28,19 @@
     var cardsOf5 = 0;
     var socket = io();
     var btnDealCards = document.getElementById("btnDeal");
+    var btnCollect = document.getElementById("btnCollect");
+    var btnDumm = document.getElementById("btnDumm");
     var startOwnHeight = 738;
     var startOwnWidth = 100;
     var startMidHeight = 306;
     var startMidWidth = 200;
     var deskOpen = false;
     var myTurn = false;
+    var hasPlayed = false;
+    var selected = {};
+    for(var v in selected) {
+        selected[v] = false;
+    }
 
     //Images setup
     {
@@ -257,6 +265,19 @@
 
     socket.on("myTurn", function (data) {
         myTurn = data;
+        console.log("MYTURN: " + data);
+        reDrawAll();
+    });
+
+    socket.on("setupNewTurn", function () {
+        hasPlayed = false;
+        deskOpen = false;
+    });
+
+    socket.on("aufdecken", function () {
+        deskOpen = true;
+        btnCollect.disabled = false;
+        btnDumm.disabled = false;
         reDrawAll();
     });
 
@@ -265,7 +286,7 @@
             ctx.fillStyle = "#ff0000";
             ctx.fillRect(0,800,100,200);
             ctx.fillStyle = "#000000";
-            ctx.fillText("Dumm",0,900);
+            ctx.fillText("D",0,900);
         } else {
             ctx.fillStyle = "#ffffff";
             ctx.fillRect(0,800,100,200);
@@ -304,12 +325,17 @@
             if(cardsOnDesk[v] != null) {
                 if(deskOpen) {
                     drawCard(cardsOnDesk[v], startMidWidth + i*250, startMidHeight, 250, 388);
+                    if(selected[i]) {
+                        ctx.fillStyle = "#ff0000";
+                        ctx.fillText("SELECTED", startMidWidth + i*250, startMidHeight);
+                    }
                 } else {
                     drawBack(cardBack, startMidWidth + i*250, startMidHeight, 250, 388);
                 }
             }
             i++;
         }
+
     }
 
     function drawOwnCards() {
@@ -437,43 +463,43 @@
     function handleKeyPress(event) {
         switch (event.code) {
             case"Digit1": {
-                if(shiftPressed) playCard(0);
+                if(shiftPressed) if(!hasPlayed) if(ownedCards[0] != null) playCard(0);
                 break;
             }
             case"Digit2": {
-                if(shiftPressed) playCard(1);
+                if(shiftPressed) if(!hasPlayed) if(ownedCards[1] != null) playCard(1);
                 break;
             }
             case"Digit3": {
-                if(shiftPressed) playCard(2);
+                if(shiftPressed) if(!hasPlayed) if(ownedCards[2] != null) playCard(2);
                 break;
             }
             case"Digit4": {
-                if(shiftPressed) playCard(3);
+                if(shiftPressed) if(!hasPlayed) if(ownedCards[3] != null) playCard(3);
                 break;
             }
             case"Digit5": {
-                if(shiftPressed) playCard(4);
+                if(shiftPressed) if(!hasPlayed) if(ownedCards[4] != null) playCard(4);
                 break;
             }
             case"Digit6": {
-                if(shiftPressed) playCard(5);
+                if(shiftPressed) if(!hasPlayed) if(ownedCards[5] != null) playCard(5);
                 break;
             }
             case"Digit7": {
-                if(shiftPressed) playCard(6);
+                if(shiftPressed) if(!hasPlayed) if(ownedCards[6] != null) playCard(6);
                 break;
             }
             case"Digit8": {
-                if(shiftPressed) playCard(7);
+                if(shiftPressed) if(!hasPlayed) if(ownedCards[7] != null) playCard(7);
                 break;
             }
             case"Digit9": {
-                if(shiftPressed) playCard(8);
+                if(shiftPressed) if(!hasPlayed) if(ownedCards[8] != null) playCard(8);
                 break;
             }
             case"Digit0": {
-                if(shiftPressed) playCard(9);
+                if(shiftPressed) if(!hasPlayed) if(ownedCards[9] != null) playCard(9);
                 break;
             }
             default: {
@@ -482,7 +508,90 @@
         }
     }
 
+    canvas.onmousedown = handleMouseDown;
+
+    function handleMouseDown(event) {
+
+        var x = event.pageX - this.offsetLeft;
+        var y = event.pageY - this.offsetTop;
+
+        if(!deskOpen) return;
+
+        console.log("x: " + x + " y: " + y);
+        if(306 < y) {
+            if(y < 694) {
+                if(200 < x) if(x < 450) { // 1
+                    console.log("Selected: 1");
+                    selected[0] = true;
+                }
+                else if(450 < x) if(x < 700) { // 2
+                    console.log("Selected: 2");
+                    selected[1] = true;
+                }
+                else if(700 < x) if(x < 950) { // 3
+                    console.log("Selected: 3");
+                    selected[2] = true;
+                }
+                else if(950 < x) if(x < 1200) { // 4
+                    console.log("Selected: 4");
+                    selected[3] = true;
+                }
+                else if(1200 < x) if(x < 1450) { // 5
+                    console.log("Selected: 5");
+                    selected[4] = true;
+                }
+                else if(1450 < x) if(x < 1700) { // 6
+                    console.log("Selected: 6");
+                    selected[5] = true;
+                }
+            }
+        }
+        reDrawAll();
+    }
+
+    function onClickBtnCollect() {
+
+        console.log("Collecting");
+        btnCollect.disabled = true;
+        btnDumm.disabled = true;
+        for(var v in cardsOnDesk) {
+            if(selected[v]) {
+                console.log(v +" selected: "+ cardsOnDesk[v]);
+                ownedCards[findNextFree()] = cardsOnDesk[v];
+                socket.emit("collected", cardsOnDesk[v], ownPos);
+                cardsOnDesk[v] = null;
+            }
+        }
+        for(var v in selected) {
+            selected[v] = false;
+        }
+        reCalcDeskCards();
+        reDrawAll();
+    }
+
+    socket.on("reNewDesk", function (data, owner) {
+        if(owner === ownPos) return;
+        for(var v in cardsOnDesk) {
+            if(cardsOnDesk[v] === data) {
+                console.log("removing: " + v);
+                cardsOnDesk[v] = null;
+            }
+        }
+        reCalcDeskCards();
+        reDrawAll();
+    });
+
+    function onClickBtnDumm() {
+
+        btnDumm.disabled = true;
+        btnCollect.disabled = true;
+        socket.emit("newTurn", ownPos);
+
+    }
+
+
     function playCard(index) {
+        hasPlayed = true;
         console.log("playCard: " + ownedCards[index] + " at " + index);
         console.log(ownedCards[index]);
         socket.emit("playCard", ownedCards[index], ownPos);
@@ -501,6 +610,18 @@
             }
         }
         ownedCards = j;
+    }
+
+    function reCalcDeskCards() {
+        var i = 0;
+        var j = {};
+        for(var v in cardsOnDesk) {
+            if(cardsOnDesk[v] != null) {
+                j[i] = cardsOnDesk[v];
+                i++;
+            }
+        }
+        cardsOnDesk = j;
     }
 
     socket.on("cardBack", function (data) {
@@ -628,6 +749,7 @@
     }
 
     function dealCards() {
+        btnDealCards.disabled = true;
         socket.emit("dealCards");
     }
 
@@ -643,6 +765,8 @@
     }
 
     function reDrawAll() {
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0,0,1900,1000);
         drawPlayers();
         drawMyTurn();
         drawOwnCards();
