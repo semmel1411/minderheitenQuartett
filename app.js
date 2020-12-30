@@ -23,12 +23,20 @@ var playerCount = 0;
 var lobbyCount = 0;
 var index = 0;
 var isInGame = false;
+var cardindex = 0;
+
+var allInts = {};
+for(var i = 0;i<60;i++) {
+    allInts[i] = i;
+}
+var shuffledCards = shuffleCards(allInts);
 
 var Player = function (id) {
     var self = {
         id:id,
         position:0,
         ownedCards:{},
+        playedCard:false,
     }
     return self;
 }
@@ -69,7 +77,10 @@ io.sockets.on("connection",function (socket) {
         socket.emit("setup");
         if(playerCount === lobbyCount) {
             io.to("room").emit("setPlayers");
-            //SOCKET_LIST[Math.floor(Math.random() * playerCount)].emit("myTurn", true);
+            orderLists();
+            var rdm = Math.floor(Math.random() * playerCount);
+            console.log("Turn of: " + rdm);
+            SOCKET_LIST[rdm].emit("myTurn", true);
         }
     }
 
@@ -81,7 +92,7 @@ io.sockets.on("connection",function (socket) {
         delete PLAYER_LIST[socket.id];
         delete POSITIONS[socket.id];
         playerCount--;
-        calcNewPos();
+        if(!isInGame) calcNewPos();
         /*for(var p in SOCKET_LIST) {
             SOCKET_LIST[p].emit("playerDis",player.position);
         }*/
@@ -101,9 +112,68 @@ io.sockets.on("connection",function (socket) {
     socket.on("playCard", function (card, owner) {
         io.to("room").emit("cardOnDesk", card);
         io.to("room").emit("cardBackRemove", owner);
+        for(var v in PLAYER_LIST) {
+            if(owner === PLAYER_LIST[v].position) {
+                PLAYER_LIST[v].playedCard = true;
+            }
+        }
+        var allPlayed = true;
+        for(var v in PLAYER_LIST) {
+            if(!PLAYER_LIST[v].playedCard) {
+                allPlayed = false;
+            }
+        }
+        if(allPlayed) {
+            io.to("room").emit("aufdecken");
+        }
+    });
+
+    socket.on("collected", function (card, owner) {
+        io.to("room").emit("reNewDesk",card, owner);
+    });
+
+    socket.on("newTurn", function (data) {
+        for(var v in PLAYER_LIST) {
+            if(PLAYER_LIST[v].position === data) {
+                console.log("Turn of: " + data + " at v=" + v + " pos " + PLAYER_LIST[v].position);
+                SOCKET_LIST[v].emit("newCard", shuffledCards[cardindex]);
+                cardindex++;
+                for(var i in SOCKET_LIST) {
+                    SOCKET_LIST[i].emit("cardBack", PLAYER_LIST[v].position);
+                    SOCKET_LIST[i].emit("myTurn", false);
+                    SOCKET_LIST[i].emit("setupNewTurn");
+                }
+                for(var p in PLAYER_LIST) {
+                    PLAYER_LIST[p].playedCard = false;
+                }
+                SOCKET_LIST[v].emit("myTurn", true);
+            }
+        }
     });
 
 });
+
+function orderLists() {
+    var i = 0;
+    var l = {};
+    for(var v in SOCKET_LIST) {
+        if(SOCKET_LIST[v] != null) {
+            l[i] = SOCKET_LIST[v];
+            i++;
+        }
+    }
+    SOCKET_LIST = l;
+
+    var a = 0;
+    var b = {};
+    for(var v in PLAYER_LIST) {
+        if(PLAYER_LIST[v] != null) {
+            b[a] = PLAYER_LIST[v];
+            a++;
+        }
+    }
+    PLAYER_LIST = b;
+}
 
 function calcNewPos() {
 
@@ -128,13 +198,6 @@ function calcNewPos() {
 function dealCards() {
 
     console.log("Deal Cards");
-    var allInts = {};
-    for(var i = 0;i<60;i++) {
-        allInts[i] = i;
-    }
-    var shuffledCards = shuffleCards(allInts);
-
-    var cardindex = 0;
 
     for(var p in PLAYER_LIST) {
         for(var i = 0;i<3;i++) {
